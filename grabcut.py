@@ -125,11 +125,11 @@ class MainWindow(QMainWindow):
 
     def onOpenActionTriggered(self):
         fileName, _ = QFileDialog.getOpenFileName(
-            self, "Open File", str(self.imgPath.parent))
+            self, "Open File", str(self.imgPath))
         if not fileName:
             return
 
-        self.imgPath = Path(fileName)
+        self.imgPath = Path(fileName).parent
 
         self.img = cv2.imread(fileName)
         self.resetMaskLayer()
@@ -138,11 +138,11 @@ class MainWindow(QMainWindow):
 
     def onSaveActionTriggered(self):
         fileName, _ = QFileDialog.getSaveFileName(
-            self, "Save File", str(self.imgPath.parent))
+            self, "Save File", str(self.imgPath))
         if not fileName:
             return
 
-        self.imgPath = Path(fileName)
+        self.imgPath = Path(fileName).parent
 
         cv2.imwrite(fileName, self.result)
 
