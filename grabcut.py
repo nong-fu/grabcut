@@ -26,6 +26,9 @@ class Canvas(QLabel):
         # self.setStyleSheet("border: 1px solid red;")
         self.last_x, self.last_y = None, None
 
+    def mousePressEvent(self, e):
+        self.parent.pushMask()
+
     def mouseMoveEvent(self, e):
         if self.last_x is None:
             self.last_x = e.x()
@@ -52,6 +55,9 @@ class MainWindow(QMainWindow):
         self.result = []
         self.penSize = 10
         self.iterCount = 5
+
+        # history masks for undo
+        self.masks = []
 
         self.imgPath = Path.cwd()
 
@@ -109,6 +115,7 @@ class MainWindow(QMainWindow):
         # handle events
         self.ui.openAction.triggered.connect(self.onOpenActionTriggered)
         self.ui.saveAction.triggered.connect(self.onSaveActionTriggered)
+        self.ui.undoAction.triggered.connect(self.onUndoActionTriggered)
         # use lambda to adapt the the problem of insufficient parameters
         self.ui.exitAction.triggered.connect(lambda: self.closeEvent(None))
         self.penSizeSpinBox.valueChanged.connect(self.onPenSizeChanged)
@@ -138,6 +145,14 @@ class MainWindow(QMainWindow):
         self.imgPath = Path(fileName)
 
         cv2.imwrite(fileName, self.result)
+
+    def onUndoActionTriggered(self):
+        if len(self.masks) == 0:
+            return
+
+        print("undo", len(self.masks))
+        self.mask = self.masks.pop()
+        self.repaint()
 
     def onPenSizeChanged(self):
         self.penSize = self.penSizeSpinBox.value()
@@ -185,6 +200,13 @@ class MainWindow(QMainWindow):
             cv2.line(self.mask, start, end, cv2.GC_BGD, self.penSize)
 
         self.repaint()
+
+    def pushMask(self):
+        if len(self.masks) > 0 and np.array_equal(self.masks[-1], self.mask):
+            print("nothing changed")
+            return
+
+        self.masks.append(self.mask.copy())
 
     def getImageWithMask(self):
         # draw mask layer, exclude GC_PR_BGD
