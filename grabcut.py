@@ -1,6 +1,8 @@
 # coding=utf-8
 
+import os
 import sys
+from pathlib import Path
 
 import numpy as np
 import cv2
@@ -50,6 +52,8 @@ class MainWindow(QMainWindow):
         self.result = []
         self.penSize = 10
         self.iterCount = 5
+
+        self.imgPath = Path.cwd()
 
         self.initUI()
 
@@ -104,6 +108,7 @@ class MainWindow(QMainWindow):
 
         # handle events
         self.ui.openAction.triggered.connect(self.onOpenActionTriggered)
+        self.ui.saveAction.triggered.connect(self.onSaveActionTriggered)
         # use lambda to adapt the the problem of insufficient parameters
         self.ui.exitAction.triggered.connect(lambda: self.closeEvent(None))
         self.penSizeSpinBox.valueChanged.connect(self.onPenSizeChanged)
@@ -113,14 +118,26 @@ class MainWindow(QMainWindow):
 
     def onOpenActionTriggered(self):
         fileName, _ = QFileDialog.getOpenFileName(
-            self, "Open File", QDir.currentPath())
+            self, "Open File", str(self.imgPath.parent))
         if not fileName:
             return
+
+        self.imgPath = Path(fileName)
 
         self.img = cv2.imread(fileName)
         self.resetMaskLayer()
         self.result = []
         self.repaint()
+
+    def onSaveActionTriggered(self):
+        fileName, _ = QFileDialog.getSaveFileName(
+            self, "Save File", str(self.imgPath.parent))
+        if not fileName:
+            return
+
+        self.imgPath = Path(fileName)
+
+        cv2.imwrite(fileName, self.result)
 
     def onPenSizeChanged(self):
         self.penSize = self.penSizeSpinBox.value()
