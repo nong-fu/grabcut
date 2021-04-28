@@ -63,6 +63,7 @@
      <string>&amp;Edit</string>
     </property>
     <addaction name="undoAction"/>
+    <addaction name="resetAction"/>
     <addaction name="separator"/>
     <addaction name="prFgdAction"/>
     <addaction name="prBgdAction"/>
@@ -158,6 +159,14 @@
    </property>
    <property name="text">
     <string>PR_BGD</string>
+   </property>
+  </action>
+  <action name="resetAction">
+   <property name="text">
+    <string>Reset</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+R</string>
    </property>
   </action>
  </widget>

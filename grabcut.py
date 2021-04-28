@@ -116,6 +116,7 @@ class MainWindow(QMainWindow):
         self.ui.openAction.triggered.connect(self.onOpenActionTriggered)
         self.ui.saveAction.triggered.connect(self.onSaveActionTriggered)
         self.ui.undoAction.triggered.connect(self.onUndoActionTriggered)
+        self.ui.resetAction.triggered.connect(self.onResetActionTriggered)
         # use lambda to adapt the the problem of insufficient parameters
         self.ui.exitAction.triggered.connect(lambda: self.closeEvent(None))
         self.penSizeSpinBox.valueChanged.connect(self.onPenSizeChanged)
@@ -153,6 +154,11 @@ class MainWindow(QMainWindow):
         print("undo", len(self.masks))
         self.mask = self.masks.pop()
         self.repaint()
+    
+    def onResetActionTriggered(self):
+        self.resetMaskLayer()
+        self.result = []
+        self.repaint()
 
     def onPenSizeChanged(self):
         self.penSize = self.penSizeSpinBox.value()
@@ -172,6 +178,7 @@ class MainWindow(QMainWindow):
     def resetMaskLayer(self):
         self.mask = np.zeros(self.img.shape[:2], np.uint8)
         self.mask.fill(cv2.GC_PR_BGD)
+        self.masks = []
 
     def grabCut(self, iterCount):
         img = self.img.copy()
