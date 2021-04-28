@@ -3,6 +3,7 @@
 import os
 import sys
 from pathlib import Path
+import webbrowser
 
 import numpy as np
 import cv2
@@ -52,7 +53,6 @@ class MainWindow(QMainWindow):
 
         self.img = []
         self.mask = []
-        self.result = []
         self.penSize = 10
         self.iterCount = 5
 
@@ -72,28 +72,22 @@ class MainWindow(QMainWindow):
         rightBox = QWidget(self.ui.toolBar)
         boxLayout = QHBoxLayout()
 
-        # pen size spinbox
-        boxLayout.addWidget(QLabel("pen size:"))
-        self.penSizeSpinBox = QSpinBox(self)
-        self.penSizeSpinBox.setRange(1, 100)
-        self.penSizeSpinBox.setSingleStep(5)
-        self.penSizeSpinBox.setValue(self.penSize)
-        boxLayout.addWidget(self.penSizeSpinBox)
-        boxLayout.addStretch(1)
-
         # grabcut iterCount spinbox
-        boxLayout.addWidget(QLabel("iter count:"))
+        boxLayout.addWidget(QLabel("iterCount"))
         self.iterCountSpinBox = QSpinBox(self)
         self.iterCountSpinBox.setRange(1, 100)
         self.iterCountSpinBox.setValue(self.iterCount)
         boxLayout.addWidget(self.iterCountSpinBox)
 
-        # grabcut button
-        self.grabCutButton = QPushButton("grabcut")
-        boxLayout.addWidget(self.grabCutButton)
-        # grabcut one step button
-        self.stepButton = QPushButton("step")
-        boxLayout.addWidget(self.stepButton)
+        boxLayout.addStretch(1)
+
+        # pen size spinbox
+        boxLayout.addWidget(QLabel("pen"))
+        self.penSizeSpinBox = QSpinBox(self)
+        self.penSizeSpinBox.setRange(1, 100)
+        self.penSizeSpinBox.setSingleStep(5)
+        self.penSizeSpinBox.setValue(self.penSize)
+        boxLayout.addWidget(self.penSizeSpinBox)
 
         rightBox.setLayout(boxLayout)
         self.ui.toolBar.addWidget(rightBox)
@@ -115,14 +109,20 @@ class MainWindow(QMainWindow):
         # handle events
         self.ui.openAction.triggered.connect(self.onOpenActionTriggered)
         self.ui.saveAction.triggered.connect(self.onSaveActionTriggered)
+        self.ui.exportMaskAction.triggered.connect(
+            self.onExportMaskActionTriggered)
         self.ui.undoAction.triggered.connect(self.onUndoActionTriggered)
         self.ui.resetAction.triggered.connect(self.onResetActionTriggered)
+        self.ui.displayResultAction.triggered.connect(self.repaint)
+        self.ui.hiddenMaskAction.triggered.connect(self.repaint)
         # use lambda to adapt the the problem of insufficient parameters
         self.ui.exitAction.triggered.connect(lambda: self.closeEvent(None))
         self.penSizeSpinBox.valueChanged.connect(self.onPenSizeChanged)
         self.iterCountSpinBox.valueChanged.connect(self.onIterCountChanged)
-        self.grabCutButton.clicked.connect(self.onGrabCutButtonClicked)
-        self.stepButton.clicked.connect(self.onStepButtonClicked)
+        self.ui.grabCutAction.triggered.connect(self.onGrabCutButtonClicked)
+        self.ui.singleStepAction.triggered.connect(self.onStepButtonClicked)
+        self.ui.opencvAction.triggered.connect(lambda: webbrowser.open(
+            'https://opencv-python-tutroals.readthedocs.io/en/latest/py_tutorials/py_imgproc/py_grabcut/py_grabcut.html'))
 
     def onOpenActionTriggered(self):
         fileName, _ = QFileDialog.getOpenFileName(
@@ -145,7 +145,17 @@ class MainWindow(QMainWindow):
 
         self.imgPath = Path(fileName).parent
 
-        cv2.imwrite(fileName, self.result)
+        result = self.getResult()
+        cv2.imwrite(fileName, result)
+
+    def onExportMaskActionTriggered(self):
+        fileName, _ = QFileDialog.getSaveFileName(
+            self, "Save Mask", str(self.imgPath))
+        if not fileName:
+            return
+
+        self.imgPath = Path(fileName).parent
+        cv2.imwrite(fileName, self.mask)
 
     def onUndoActionTriggered(self):
         if len(self.masks) == 0:
@@ -154,7 +164,7 @@ class MainWindow(QMainWindow):
         print("undo", len(self.masks))
         self.mask = self.masks.pop()
         self.repaint()
-    
+
     def onResetActionTriggered(self):
         self.resetMaskLayer()
         self.result = []
@@ -187,14 +197,13 @@ class MainWindow(QMainWindow):
         fgdModel = np.zeros((1, 65), np.float64)
         _ = cv2.grabCut(img, mask, None, bgdModel,
                         fgdModel, iterCount, cv2.GC_INIT_WITH_MASK)
-        mask_final = np.where((mask == 2) | (mask == 0), 0, 1).astype('uint8')
-        img = img*mask_final[:, :, np.newaxis]
-        cv2.imwrite('output.png', img)
-        self.result = img
         self.repaint()
 
     def drawLine(self, start, end):
         if len(self.img) == 0:
+            return
+
+        if self.ui.hiddenMaskAction.isChecked() or self.ui.displayResultAction.isChecked():
             return
 
         if self.ui.prFgdAction.isChecked():
@@ -216,14 +225,18 @@ class MainWindow(QMainWindow):
         self.masks.append(self.mask.copy())
 
     def getImageWithMask(self):
+        if self.ui.hiddenMaskAction.isChecked():
+            return self.img
+
         # draw mask layer, exclude GC_PR_BGD
         mask = np.zeros(self.img.shape, dtype=np.uint8)
-        mask[self.mask == cv2.GC_PR_FGD, :] = 0, 0, 120
-        mask[self.mask == cv2.GC_BGD, :] = 1, 0, 0
-        mask[self.mask == cv2.GC_FGD, :] = 0, 0, 255
+        mask[self.mask == cv2.GC_BGD, :] = 0, 0, 255
+        mask[self.mask == cv2.GC_PR_BGD, :] = 0, 0, 120
+        mask[self.mask == cv2.GC_FGD, :] = 0, 255, 0
+        mask[self.mask == cv2.GC_PR_FGD, :] = 0, 120, 0
 
         # mix mask and img
-        alpha = 0.7
+        alpha = 0.5
         indices = np.where((mask[:, :, 0] != 0) | (
             mask[:, :, 1] != 0) | (mask[:, :, 2] != 0))
         img = self.img.copy()
@@ -231,9 +244,14 @@ class MainWindow(QMainWindow):
 
         return img
 
+    def getResult(self):
+        result_mask = np.where((self.mask == 2) | (
+            self.mask == 0), 0, 1).astype('uint8')
+        return self.img*result_mask[:, :, np.newaxis]
+
     def repaint(self):
-        if len(self.result) != 0:
-            img = self.result
+        if self.ui.displayResultAction.isChecked():
+            img = self.getResult()
         else:
             img = self.getImageWithMask()
 
