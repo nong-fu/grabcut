@@ -75,7 +75,7 @@ class MainWindow(QMainWindow):
         # NONE mean none of (BGD/FGD/PR_BGD/PR_FGD)
         self.GC_NONE = 255
         # mask layer alpha
-        self.alpha = 0.5
+        self.alpha = 0.3
 
         self.imgPath = Path.cwd()
         self.penSize = 40
@@ -94,6 +94,7 @@ class MainWindow(QMainWindow):
         _ = cv2.grabCut(self.img, self.mask, None, bgdModel,
                         fgdModel, iterCount, cv2.GC_INIT_WITH_MASK)
         self.drawPartialImgWithMask(self.masks[-1], self.mask)
+
         # display result
         self.ui.displayResultAction.setChecked(True)
         self.repaint()
@@ -196,7 +197,7 @@ class MainWindow(QMainWindow):
         boxLayout.addWidget(QLabel("iterCount"))
         self.iterCountSpinBox = QSpinBox(self)
         self.iterCountSpinBox.setRange(1, 100)
-        self.iterCountSpinBox.setValue(self.iterCount)
+        self.iterCountSpinBox.setValue(5)
         boxLayout.addWidget(self.iterCountSpinBox)
 
         boxLayout.addStretch(1)
@@ -206,7 +207,7 @@ class MainWindow(QMainWindow):
         self.penSizeSpinBox = QSpinBox(self)
         self.penSizeSpinBox.setRange(1, 500)
         self.penSizeSpinBox.setSingleStep(5)
-        self.penSizeSpinBox.setValue(self.penSize)
+        self.penSizeSpinBox.setValue(40)
         boxLayout.addWidget(self.penSizeSpinBox)
 
         rightBox.setLayout(boxLayout)
@@ -237,6 +238,15 @@ class MainWindow(QMainWindow):
             'https://opencv-python-tutroals.readthedocs.io/en/'
             'latest/py_tutorials/py_imgproc/py_grabcut/py_grabcut.html'
         ))
+
+        self.resetUiToDrawMaskMode()
+
+    def resetUiToDrawMaskMode(self):
+        """reset ui to draw mask mode.
+        """
+        self.ui.prFgdAction.setChecked(True)
+        self.ui.displayResultAction.setChecked(False)
+        self.ui.hiddenMaskAction.setChecked(False)
 
     def setPenSize(self, v):
         self.penSize = v
@@ -299,8 +309,7 @@ class MainWindow(QMainWindow):
         self.mask = prevMask
 
         # after undo, uncheck display result and hidden mask
-        self.ui.displayResultAction.setChecked(False)
-        self.ui.hiddenMaskAction.setChecked(False)
+        self.resetUiToDrawMaskMode()
         self.repaint()
 
     @pyqtSlot(name="on_resetAction_triggered")
@@ -318,9 +327,7 @@ class MainWindow(QMainWindow):
         self.imgWithMask[...] = (1-self.alpha)*self.img + \
             self.alpha*self.mode2color[cv2.GC_PR_BGD]
 
-        # no display result, restart work on normal mode
-        self.ui.displayResultAction.setChecked(False)
-        self.ui.hiddenMaskAction.setChecked(False)
+        self.resetUiToDrawMaskMode()
         self.repaint()
 
     @pyqtSlot(name="on_grabCutAction_triggered")
