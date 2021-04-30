@@ -3,11 +3,12 @@
 import sys
 from pathlib import Path
 import webbrowser
+from typing import Tuple
 
 import numpy as np
 import cv2
 
-from PyQt5.QtCore import QDir, Qt, pyqtSlot
+from PyQt5.QtCore import QDir, Qt, pyqtSlot, pyqtSignal
 from PyQt5.QtGui import QImage, QPixmap, QColor
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QWidget,
@@ -22,6 +23,9 @@ class Canvas(QLabel):
     """Canvas for drawing mask layer on Image.
     """
 
+    mousePressed = pyqtSignal()
+    mouseMoved = pyqtSignal(int, int, int, int)
+
     def __init__(self, parent):
         super().__init__(parent)
         self.parent = parent
@@ -29,7 +33,7 @@ class Canvas(QLabel):
         self.last_x, self.last_y = None, None
 
     def mousePressEvent(self, e):
-        self.parent.pushMask()
+        self.mousePressed.emit()
 
     def mouseMoveEvent(self, e):
         x, y = e.x(), e.y()
@@ -38,7 +42,7 @@ class Canvas(QLabel):
             self.last_x, self.last_y = x, y
             return
 
-        self.parent.drawingMask((self.last_x, self.last_y), (x, y))
+        self.mouseMoved.emit(self.last_x, self.last_y, x, y)
         self.last_x, self.last_y = x, y
 
     def mouseReleaseEvent(self, e):
@@ -99,7 +103,7 @@ class MainWindow(QMainWindow):
         self.ui.displayResultAction.setChecked(True)
         self.repaint()
 
-    def drawingMask(self, start, end):
+    def drawingMask(self, x1, y1, x2, y2):
         """drawing an small partial of the mask layer,
         which is a small line segment.
         """
@@ -111,26 +115,26 @@ class MainWindow(QMainWindow):
             return
 
         if self.ui.prFgdAction.isChecked():
-            mark = cv2.GC_PR_FGD
+            mode = cv2.GC_PR_FGD
         elif self.ui.prBgdAction.isChecked():
-            mark = cv2.GC_PR_BGD
+            mode = cv2.GC_PR_BGD
         elif self.ui.fgdAction.isChecked():
-            mark = cv2.GC_FGD
+            mode = cv2.GC_FGD
         else:  # bgdAction
-            mark = cv2.GC_BGD
+            mode = cv2.GC_BGD
 
-        cv2.line(self.mask, start, end, mark, self.penSize)
+        cv2.line(self.mask, (x1, y1), (x2, y2), mode, self.penSize)
         partialMask = np.zeros(self.mask.shape, np.uint8)
         # GC_BGD is 0, can't use 0 as default
         partialMask.fill(self.GC_NONE)
-        cv2.line(partialMask, start, end, mark, self.penSize)
+        cv2.line(partialMask, (x1, y1), (x2, y2), mode, self.penSize)
 
         indices = np.where(partialMask != self.GC_NONE)
         if indices[0].size == 0:
             # nothing new in partialMask
             return
         self.imgWithMask[indices] = (1 - self.alpha)*self.img[indices] + \
-            self.alpha*self.mode2color[mark]
+            self.alpha*self.mode2color[mode]
 
         self.repaint()
 
@@ -238,6 +242,9 @@ class MainWindow(QMainWindow):
             'https://opencv-python-tutroals.readthedocs.io/en/'
             'latest/py_tutorials/py_imgproc/py_grabcut/py_grabcut.html'
         ))
+
+        self.canvas.mousePressed.connect(self.pushMask)
+        self.canvas.mouseMoved.connect(self.drawingMask)
 
         self.resetUiToDrawMaskMode()
 
