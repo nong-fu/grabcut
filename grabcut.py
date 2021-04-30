@@ -3,7 +3,6 @@
 import sys
 from pathlib import Path
 import webbrowser
-from typing import Tuple
 
 import numpy as np
 import cv2
@@ -91,6 +90,12 @@ class MainWindow(QMainWindow):
         if self.img is None:
             self.showMessage("No image")
             return
+
+        # avoid grabCut crash
+        if not np.any((self.mask == cv2.GC_FGD) | (self.mask == cv2.GC_PR_FGD)):
+            self.showMessage("no GC_FGD or GC_PR_FGD")
+            return
+
         # before grabcut, save mask to stack
         self.pushMask()
         bgdModel = np.zeros((1, 65), np.float64)
