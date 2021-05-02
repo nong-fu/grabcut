@@ -172,6 +172,8 @@ class MainWindow(QMainWindow):
             self.mask == 0), 0, 1).astype('uint8')
         return self.img*result_mask[:, :, np.newaxis]
 
+    @pyqtSlot(name="on_displayResultAction_triggered")
+    @pyqtSlot(name="on_hiddenMaskAction_triggered")
     def repaint(self):
         """repaint cavans.
         """
@@ -237,8 +239,6 @@ class MainWindow(QMainWindow):
         actionGroup.addAction(self.ui.prBgdAction)
 
         # handle events
-        self.ui.displayResultAction.triggered.connect(self.repaint)
-        self.ui.hiddenMaskAction.triggered.connect(self.repaint)
         self.ui.exitAction.triggered.connect(self.close)
         self.penSizeSpinBox.valueChanged.connect(self.setPenSize)
         self.iterCountSpinBox.valueChanged.connect(self.setIterCount)
