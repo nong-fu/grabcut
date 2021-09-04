@@ -6,6 +6,7 @@ import webbrowser
 
 import numpy as np
 import cv2
+from PIL import Image
 
 from PyQt5.QtCore import QDir, Qt, pyqtSlot, pyqtSignal
 from PyQt5.QtGui import QImage, QPixmap, QColor
@@ -191,7 +192,7 @@ class MainWindow(QMainWindow):
         # convert opencv image to qt image
         height, width, _ = img.shape
         bytesOfLine = 3*width
-        image = QImage(img.data, width, height,
+        image = QImage(img.tobytes(), width, height,
                        bytesOfLine, QImage.Format_RGB888).rgbSwapped()
         self.canvas.setPixmap(QPixmap.fromImage(image))
 
@@ -276,9 +277,16 @@ class MainWindow(QMainWindow):
         if not fileName:
             return
 
-        self.imgPath = Path(fileName).parent
+        imgFile = Path(fileName)
+        self.imgPath = imgFile.parent
 
-        self.img = cv2.imread(fileName)
+        # cv2.imread can't read image that path contain chinese characters,
+        # so this is a workaround.
+        # self.img = cv2.imread(fileName)
+        data = np.fromfile(fileName, dtype=np.uint8)
+        self.img = cv2.imdecode(data, cv2.IMREAD_UNCHANGED)
+        # discarding alpha channel
+        self.img = self.img[:,:,:3]
         self.reset()
 
     @pyqtSlot(name="on_saveAction_triggered")
@@ -292,10 +300,15 @@ class MainWindow(QMainWindow):
         if not fileName:
             return
 
-        self.imgPath = Path(fileName).parent
-
+        imgFile = Path(fileName)
+        self.imgPath = imgFile.parent
+        # default save as png
+        if not imgFile.suffix:
+            imgFile = imgFile.with_suffix('.png')
         result = self.getResult()
-        cv2.imwrite(fileName, result)
+        # cv2.imwrite can't write image that path contain chinese characters.
+        im = Image.fromarray(result)
+        im.save(imgFile.as_posix())
 
     @pyqtSlot(name="on_exportMaskAction_triggered")
     def exportMask(self):
@@ -307,8 +320,13 @@ class MainWindow(QMainWindow):
         if not fileName:
             return
 
-        self.imgPath = Path(fileName).parent
-        cv2.imwrite(fileName, self.mask)
+        imgFile = Path(fileName)
+        self.imgPath = imgFile.parent
+        # default save as png
+        if not imgFile.suffix:
+            imgFile = imgFile.with_suffix('.png')
+        im = Image.fromarray(self.mask)
+        im.save(imgFile.as_posix())
 
     @pyqtSlot(name="on_undoAction_triggered")
     def undo(self):

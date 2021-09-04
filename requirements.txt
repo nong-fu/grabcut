@@ -1,3 +1,5 @@
-opencv_contrib_python==4.5.1.48
-numpy==1.19.4
+numpy==1.19.5
+Pillow==8.3.2
 PyQt5==5.15.4
+# https://docs.opencv.org/4.5.2/d5/de5/tutorial_py_setup_in_windows.html
+# https://github.com/opencv/opencv/releases/tag/4.5.3
